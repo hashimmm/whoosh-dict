@@ -71,7 +71,7 @@ class whooshed_dict:
     def __iter__(self):
         from whoosh import query
         with self.ix.searcher() as searcher:
-            all_results = searcher.search(query.Every())
+            all_results = searcher.search(query.Every(),reverse=True)
             res_count = len(all_results)
             if res_count > 0:
                 for i in xrange(res_count):
