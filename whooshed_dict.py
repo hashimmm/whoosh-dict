@@ -5,16 +5,23 @@ import os
 from shutil import rmtree
 from whoosh.fields import *
 from whoosh.query import *
+from whoosh import query
 
 '''
 making a generic dictionary indexing class. not completed yet.
 '''
 
 class whooshed_dict:
-    '''ix = None
-    result = None
-    indexdir = None
-    _schema = None'''
+    '''
+    properties:
+        ix
+        result (may be removed.)
+        indexdir
+        _schema
+        doc_count (may be removed.)
+    lots of default dict methods still remain to be implemented
+    implementations for options provided in constructor also not done yet.
+    '''
 
     def __init__(self, in_folder='testing_index', from_file = None, with_dict = None, with_index = None, custom_schema = None):
         ''' 
@@ -22,8 +29,8 @@ class whooshed_dict:
         '''
         self.indexdir = in_folder
 
-        if custom_schema:
-            self._schema = custom_schema
+        '''if custom_schema:
+            self._schema = custom_schema'''
 
         self._schema = Schema(keystring = TEXT(stored=True), valuestring = TEXT(stored=True))
 
@@ -34,7 +41,7 @@ class whooshed_dict:
                 #logging.info("indexdir does not exist, will create")
                 os.mkdir(self.indexdir)
                 #logging.info("created indexdir")        
-            self.ix = index.create_in(self.indexdir, schema)
+            self.ix = index.create_in(self.indexdir, self._schema)
             #logging.info("created index in indexdir")
         else:
             self.ix = index.open_dir(self.indexdir)
@@ -50,20 +57,14 @@ class whooshed_dict:
 
     def __len__(self):
         with self.ix.searcher() as searcher:
-            return searcher.doc_count()
+            self.doc_count = searcher.doc_count()
+            return self.doc_count
 
 
     def __getitem__(self,key):
-        if key < len(self):
-            from whoosh import query
-            with self.ix.searcher() as searcher:
-                all_results = searcher.search(query.Every(),reverse=True,limit = key + 1)
-                return str(all_results[key]['valuestring'])
-
-        else:
-            with self.ix.searcher() as searcher:
-                self.result = searcher.search( Term('keystring',unicode(key)), limit = 1 )
-                return str( self.result[0]['valuestring'] ) #return, for the top result, the value for the given key
+        with self.ix.searcher() as searcher:
+            self.result = searcher.search( Term('keystring',unicode(key)), limit = 1 )
+            return str( self.result[0]['valuestring'] ) #return, for the top result, the value for the given key
 
     def __setitem__(self,key,value):
         writer = self.ix.writer()
@@ -76,13 +77,30 @@ class whooshed_dict:
         writer.commit()
 
     def __iter__(self):
-        from whoosh import query
         with self.ix.searcher() as searcher:
             all_results = searcher.search(query.Every(),reverse=True)
             res_count = len(all_results)
             if res_count > 0:
                 for i in xrange(res_count):
                     yield str(all_results[i]['valuestring'])
+
+    def keys(self):
+        keylist = []
+        with self.ix.searcher() as searcher:
+            all_results = searcher.search(query.Every(),reverse=True)
+            res_count = len(all_results)
+            if res_count > 0:
+                for i in xrange(res_count):
+                    keylist.append( str(all_results[i]['keystring']) )
+        return keylist
+
+    def has_key(self, key):
+        with self.ix.searcher() as searcher:
+            self.result = searcher.search( Term('keystring',unicode(key)), limit = 1 )
+            if len(self.result) > 0: 
+                return True 
+            else:
+                return False
 
 
     def clear(self): shutil.rmtree(self.indexdir)
