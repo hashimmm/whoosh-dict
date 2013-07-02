@@ -15,10 +15,10 @@ class whooshed_dict:
     '''
     properties:
         ix
-        result (may be removed.)
+        result (may be removed. Is there since I think I can use it for optimization)
         indexdir
         _schema
-        doc_count (may be removed.)
+        doc_count (may be removed. Is there since I think I can use it for optimization)
     lots of default dict methods still remain to be implemented
     implementations for options provided in constructor also not done yet.
     '''
@@ -84,6 +84,13 @@ class whooshed_dict:
                 for i in xrange(res_count):
                     yield str(all_results[i]['valuestring'])
 
+    def __contains__(self, item):
+        if self.has_key(key=item):
+            return True
+        elif self.has_value(value=item):
+            return True
+        return False
+
     def keys(self):
         keylist = []
         with self.ix.searcher() as searcher:
@@ -97,6 +104,14 @@ class whooshed_dict:
     def has_key(self, key):
         with self.ix.searcher() as searcher:
             self.result = searcher.search( Term('keystring',unicode(key)), limit = 1 )
+            if len(self.result) > 0: 
+                return True 
+            else:
+                return False
+
+    def has_value(self, value):
+        with self.ix.searcher() as searcher:
+            self.result = searcher.search( Term('valuestring',unicode(value)), limit = 1 )
             if len(self.result) > 0: 
                 return True 
             else:
