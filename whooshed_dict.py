@@ -7,7 +7,7 @@ from whoosh.fields import *
 from whoosh.query import *
 
 '''
-making a generic dictionary indexing class. not much done yet.
+making a generic dictionary indexing class. not completed yet.
 '''
 
 class whooshed_dict:
@@ -54,9 +54,16 @@ class whooshed_dict:
 
 
     def __getitem__(self,key):
-        with self.ix.searcher() as searcher:
-            self.result = searcher.search( Term('keystring',unicode(key)) )
-            return str( self.result[0]['valuestring'] ) #return, for the top result, the value for the given key
+        if key < len(self):
+            from whoosh import query
+            with self.ix.searcher() as searcher:
+                all_results = searcher.search(query.Every(),reverse=True,limit = key + 1)
+                return str(all_results[key]['valuestring'])
+
+        else:
+            with self.ix.searcher() as searcher:
+                self.result = searcher.search( Term('keystring',unicode(key)), limit = 1 )
+                return str( self.result[0]['valuestring'] ) #return, for the top result, the value for the given key
 
     def __setitem__(self,key,value):
         writer = self.ix.writer()
@@ -103,9 +110,7 @@ class whooshed_dict:
 
     def keys(self): 
 
-        return self.data.keys() 
+    def items(self):  
 
-    def items(self): return self.data.items() 
-
-    def values(self): return self.data.values() '''
+    def values(self):  '''
 
