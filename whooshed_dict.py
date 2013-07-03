@@ -19,8 +19,11 @@ class whooshed_dict:
         indexdir
         _schema
         doc_count (may be removed. Is there since I think I can use it for optimization)
+        writer
+        writerstate
     lots of default dict methods still remain to be implemented
     implementations for options provided in constructor also not done yet.
+    should experiment with searcher toggling as well.
     '''
 
     def __init__(self, in_folder='testing_index', from_file = None, with_dict = None, with_index = None, custom_schema = None):
@@ -47,36 +50,46 @@ class whooshed_dict:
             self.ix = index.open_dir(self.indexdir)
             #logging.info("found and opened existing index in indexdir")
 
-        writer = self.ix.writer()
+        self.writer = self.ix.writer()
 
         if with_dict:
             for key in with_dict:
                 writer.add_document(keystring = unicode(key), valuestring = unicode(with_dict[key]) )
 
-        writer.commit()
+        self.writer.commit()
+
+    def writerToggleClose(self):
+        if not self.writer.is_closed:
+            self.writer.commit()
+
+    def writerToggleOpen(self):
+        if self.writer.is_closed:
+            self.writer = self.ix.writer()
 
     def __len__(self):
+        self.writerToggleClose()
         with self.ix.searcher() as searcher:
             self.doc_count = searcher.doc_count()
             return self.doc_count
 
 
     def __getitem__(self,key):
+        self.writerToggleClose()
         with self.ix.searcher() as searcher:
             self.result = searcher.search( Term('keystring',unicode(key)), limit = 1 )
             return str( self.result[0]['valuestring'] ) #return, for the top result, the value for the given key
 
     def __setitem__(self,key,value):
-        writer = self.ix.writer()
-        writer.add_document(keystring = unicode(key), valuestring = unicode(value))
-        writer.commit()
+        self.writerToggleOpen()
+        self.writer.add_document(keystring = unicode(key), valuestring = unicode(value))
 
     def __delitem__(self,key):
-        writer = self.ix.writer()
-        writer.delete_by_term('keystring', unicode(key))
-        writer.commit()
+        self.writerToggleOpen()
+        self.writer.delete_by_term('keystring', unicode(key))
+        self.writer.commit()
 
     def __iter__(self):
+        self.writerToggleClose()
         with self.ix.searcher() as searcher:
             all_results = searcher.search(query.Every(),reverse=True)
             res_count = len(all_results)
@@ -85,6 +98,7 @@ class whooshed_dict:
                     yield str(all_results[i]['valuestring'])
 
     def __contains__(self, item):
+        self.writerToggleClose()
         if self.has_key(key=item):
             return True
         elif self.has_value(value=item):
@@ -92,6 +106,7 @@ class whooshed_dict:
         return False
 
     def keys(self):
+        self.writerToggleClose()
         keylist = []
         with self.ix.searcher() as searcher:
             all_results = searcher.search(query.Every(),reverse=True)
@@ -102,6 +117,7 @@ class whooshed_dict:
         return keylist
 
     def has_key(self, key):
+        self.writerToggleClose()
         with self.ix.searcher() as searcher:
             self.result = searcher.search( Term('keystring',unicode(key)), limit = 1 )
             if len(self.result) > 0: 
@@ -110,6 +126,7 @@ class whooshed_dict:
                 return False
 
     def has_value(self, value):
+        self.writerToggleClose()
         with self.ix.searcher() as searcher:
             self.result = searcher.search( Term('valuestring',unicode(value)), limit = 1 )
             if len(self.result) > 0: 
