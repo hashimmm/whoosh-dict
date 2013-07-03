@@ -86,7 +86,6 @@ class whooshed_dict:
     def __delitem__(self,key):
         self.writerToggleOpen()
         self.writer.delete_by_term('keystring', unicode(key))
-        self.writer.commit()
 
     def __iter__(self):
         self.writerToggleClose()
@@ -135,7 +134,9 @@ class whooshed_dict:
                 return False
 
 
-    def clear(self): shutil.rmtree(self.indexdir)
+    def clear(self):
+        self.writerToggleClose()
+        shutil.rmtree(self.indexdir)
 
 
 
