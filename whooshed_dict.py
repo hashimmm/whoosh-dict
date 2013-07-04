@@ -71,7 +71,7 @@ class whooshed_dict:
                 ixinfofile.write('1')
             else:
                 ixinfofile.write('0')
-            infofile.close()
+            ixinfofile.close()
 
 
         self.writer = self.ix.writer()
