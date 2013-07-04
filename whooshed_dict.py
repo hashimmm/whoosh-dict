@@ -21,12 +21,16 @@ class whooshed_dict:
         doc_count (may be removed. Is there since I think I can use it for optimization)
         writer
         writerstate
+        bool_only
+
     lots of default dict methods still remain to be implemented
     implementations for options provided in constructor also not done yet.
     should experiment with searcher toggling as well.
+
+    URGENT: opening without providing bool_only argument should open with the correct mode and act accordingly. mode currently saved to file.
     '''
 
-    def __init__(self, in_folder='testing_index', from_file = None, with_dict = None, with_index = None, custom_schema = None):
+    def __init__(self, in_folder='testing_index', bool_only=False, from_file = None, with_dict = None, with_index = None, custom_schema = None):
         ''' 
         implement optional stuff
         '''
@@ -35,20 +39,40 @@ class whooshed_dict:
         '''if custom_schema:
             self._schema = custom_schema'''
 
-        self._schema = Schema(keystring = TEXT(stored=True), valuestring = TEXT(stored=True))
+        self.bool_only = bool_only
 
+        self._schema = Schema(keystring = TEXT(stored=not self.bool_only), valuestring = TEXT(stored=not self.bool_only))
 
         if not index.exists_in(self.indexdir):
             #logging.info("index does not exist in indexdir, will create")
             if not os.path.exists(self.indexdir):
                 #logging.info("indexdir does not exist, will create")
                 os.mkdir(self.indexdir)
-                #logging.info("created indexdir")        
+                #logging.info("created indexdir")
             self.ix = index.create_in(self.indexdir, self._schema)
             #logging.info("created index in indexdir")
         else:
             self.ix = index.open_dir(self.indexdir)
             #logging.info("found and opened existing index in indexdir")
+
+        if os.path.exists(self.indexdir + '/ixIsTruthy'):
+            ixinfofile = open(self.indexdir + '/ixIsTruthy','rb')
+            ixinfo = ixinfofile.readline()
+            if ixinfo == '1':
+                ixinfo = True
+            elif ixinfo == '0':
+                ixinfo = False
+            if ixinfo != self.bool_only:
+                raise Exception('cannot open existing index in a different bool_only mode. change it or add to argument and set as true')
+            ixinfofile.close()
+        else:
+            ixinfofile = open(self.indexdir + '/ixIsTruthy', 'wb')
+            if self.bool_only:
+                ixinfofile.write('1')
+            else:
+                ixinfofile.write('0')
+            infofile.close()
+
 
         self.writer = self.ix.writer()
 
@@ -77,7 +101,13 @@ class whooshed_dict:
         self.writerToggleClose()
         with self.ix.searcher() as searcher:
             self.result = searcher.search( Term('keystring',unicode(key)), limit = 1 )
-            return str( self.result[0]['valuestring'] ) #return, for the top result, the value for the given key
+            if self.bool_only:
+                if len(self.result) == 0:
+                    return False
+                else:
+                    return True
+            else:
+                return str( self.result[0]['valuestring'] ) #return, for the top result, the value for the given key
 
     def __setitem__(self,key,value):
         self.writerToggleOpen()
@@ -88,13 +118,16 @@ class whooshed_dict:
         self.writer.delete_by_term('keystring', unicode(key))
 
     def __iter__(self):
-        self.writerToggleClose()
-        with self.ix.searcher() as searcher:
-            all_results = searcher.search(query.Every(),reverse=True)
-            res_count = len(all_results)
-            if res_count > 0:
-                for i in xrange(res_count):
-                    yield str(all_results[i]['valuestring'])
+        if not self.bool_only:
+            self.writerToggleClose()
+            with self.ix.searcher() as searcher:
+                all_results = searcher.search(query.Every(),reverse=True)
+                res_count = len(all_results)
+                if res_count > 0:
+                    for i in xrange(res_count):
+                        yield str(all_results[i]['valuestring'])
+        else:
+            raise Exception('cannot get text from a whooshed_dict object initialized with bool_only = True')
 
     def __contains__(self, item):
         self.writerToggleClose()
@@ -105,15 +138,18 @@ class whooshed_dict:
         return False
 
     def keys(self):
-        self.writerToggleClose()
-        keylist = []
-        with self.ix.searcher() as searcher:
-            all_results = searcher.search(query.Every(),reverse=True)
-            res_count = len(all_results)
-            if res_count > 0:
-                for i in xrange(res_count):
-                    keylist.append( str(all_results[i]['keystring']) )
-        return keylist
+        if not self.bool_only:
+            self.writerToggleClose()
+            keylist = []
+            with self.ix.searcher() as searcher:
+                all_results = searcher.search(query.Every(),reverse=True)
+                res_count = len(all_results)
+                if res_count > 0:
+                    for i in xrange(res_count):
+                        keylist.append( str(all_results[i]['keystring']) )
+            return keylist
+        else:
+            raise Exception('cannot get text from a whooshed_dict object initialized with bool_only = True')
 
     def has_key(self, key):
         self.writerToggleClose()
