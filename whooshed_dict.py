@@ -172,7 +172,7 @@ class whooshed_dict:
 
     def clear(self):
         self.writerToggleClose()
-        shutil.rmtree(self.indexdir)
+        rmtree(self.indexdir)
 
 
 
